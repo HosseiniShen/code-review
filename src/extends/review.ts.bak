@@ -1,0 +1,248 @@
+
+import { window, WebviewPanel, ProgressLocation } from 'vscode';
+import { IBaseReviewModel, IReviewModel, ACTIONS } from '../interfaces';
+import { addComment } from '../model/index';
+import * as Utils from '../utils';
+import { WebView } from './webview';
+
+export class ReviewWebview extends WebView {
+    public messageHandler = {
+        // 保存
+        async [ACTIONS.SAVE] (panel: WebviewPanel, data: IReviewModel) {
+          window.withProgress(
+            {
+              location: ProgressLocation.Notification,
+              title: 'save comment'
+            },
+            p => {
+              return new Promise(async (resolve, reject) => {
+                try {
+                  p.report({ message: 'saving' });
+                  // const ret = await addComment(data);
+                  // if (ret) {
+                  //   Utils.info('Successfully saved');
+                  //   panel.dispose();
+                  // }
+                  resolve();
+                } catch (e) {
+                  reject(e);
+                }
+              });
+            }
+          );
+        },
+
+        // 取消
+        [ACTIONS.CANCEL] (panel: WebviewPanel) {
+            panel.dispose();
+        },
+
+        [ACTIONS.ERROR] (panel: WebviewPanel, data: any) {
+            Utils.warn(data.msg);
+        }
+    };
+
+    getWebviewContent (data: IBaseReviewModel) {
+        let { project, filePath, codeContents, line } = data;
+        let webviewTitle = this.webviewTitle;
+        return `
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>${ webviewTitle }</title>
+            <style>
+              *{
+                  font-family: Microsoft YaHei;
+              }
+              .value-item {
+                width: 400px;
+                padding: 5px;
+                margin: 8px 0;
+                display: inline-block;
+                border-width: 1px;
+                border-style: solid;
+                border-color: #ccc;
+                border-radius: 0px;
+                box-sizing: border-box;
+                vertical-align: middle;
+              }
+
+              .value-item.validate {
+                border-color: #d43c33;
+              }
+        
+              body.vscode-light {
+                color: #3C3F41;
+              }
+        
+              body.vscode-dark {
+                color: #eee;
+              }
+
+              body.vscode-dark .value-item {
+                background: #3C3F41;
+                color: #eee;
+              }
+
+              .form-item label {
+                  display: inline-block;
+                  width: 120px;
+                  vertical-align: middle;
+              }
+
+              .button-group {
+                  text-align: center;
+                  margin-top: 20px;
+              }
+
+              .button-group button {
+                  display: inline-block;
+                  padding: 10px 20px;
+                  border: none;
+                  outline: none;
+                  appearance: none;
+                  border-radius: 6px;
+                  color: #fff;
+                  cursor: pointer;
+              }
+
+              .button-group .save {
+                  background: #67c23a;
+                  margin-right: 20px;
+              }
+
+              .button-group .cancel {
+                background: #f56c6c;
+            }
+        
+            </style>
+          </head>
+        
+          <body>
+            <form class="review-form">
+              <div class="form-item">
+                <label for="project">Project：</label>
+                <input id="project" class="value-item" name="project" type="text" readonly value="${ project }" />
+              </div>
+              <div class="form-item">
+                <label for="appId">AppId</label>
+                <input id="appId" class="value-item" name="appId" type="text" placeholder="Please input appId of the project"/>
+              </div>
+              <div class="form-item">
+                <label for="filePath">FilePath：</label>
+                <input id="filePath" class="value-item" name="filePath" type="text" readonly value="${ filePath }" />
+              </div>
+              <div class="form-item">
+                <label for="line">Line：</label>
+                <input id="line" class="value-item" name="line" type="text" readonly value="${ line }" />
+              </div>
+              <div class="form-item">
+                <label for="codeContents">CodeContents：</label>
+                <textarea id="codeContents" class="value-item" name="codeContents" rows="5" readonly>${ codeContents }</textarea>
+              </div>
+              <div class="form-item">
+                <label for="branch">Branch：</label>
+                <input id="branch" class="value-item" name="branch" type="text" placeholder="Please input your branch name"/>
+              </div>
+              <div class="form-item">
+                <label for="reviewer">Reviewer：</label>
+                <input id="reviewer" class="value-item" name="reviewer" type="text" placeholder="Please input reviewer"/>
+              </div>
+              <div class="form-item">
+                <label for="coder">Coder：</label>
+                <input id="coder" class="value-item" name="coder" type="text" placeholder="Please input coder"/>
+              </div>
+              <div class="form-item">
+                <label for="comments">Comments：</label>
+                <textarea id="comments" class="value-item" name="comments" rows="5" placeholder="Please input your comments"></textarea>
+              </div>
+              <div class="form-item">
+                <label for="type">Type：</label>
+                <select id="type" class="value-item" name="type">
+                    <option value="问题">问题</option>
+                    <option value="建议">建议</option>
+                    <option value="疑问">疑问</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label for="severity">Severity：</label>
+                <select id="severity" class="value-item" name="severity">
+                    <option value="提示">提示</option>
+                    <option value="一般">一般</option>
+                    <option value="严重">严重</option>
+                </select>
+              </div>
+              <div class="form-item">
+                <label for="belongTo">BelongTo：</label>
+                <select id="belongTo" class="value-item" name="belongTo">
+                    <option value="编码基础类">编码基础类</option>
+                    <option value="业务功能类">业务功能类</option>
+                    <option value="安全可靠类">安全可靠类</option>
+                </select>
+              </div>
+
+              <div class="button-group">
+                <button class="save" id="save">Save</button>
+                <button class="cancel" id="cancel">Cancel</button>
+              </div>
+              
+            </form>
+          </body>
+        
+          <script>
+            const vscode = acquireVsCodeApi();
+            getNode('#save').onclick = function () {
+                if (isInvalid()) {
+                    return;
+                }
+                const data = getCommentData();
+                postVscodeMessage('save', data);
+            }
+
+            getNode('#cancel').onclick = function () {
+                postVscodeMessage('cancel');
+            }
+
+            function getNode (selector) {
+                return getNode[selector] || (getNode[selector] = document.querySelector(selector));
+            }
+
+            function getCommentData () {
+                return {
+                    project: '${ project }',
+                    filePath: '${ filePath }',
+                    line: '${ line }',
+                    codeContents: ${ JSON.stringify(codeContents) },
+                    appId: getNode('#appId').value,
+                    branch: getNode('#branch').value,
+                    reviewer: getNode('#reviewer').value,
+                    coder: getNode('#coder').value,
+                    comments: getNode('#comments').value,
+                    type: getNode('#type').value,
+                    severity: getNode('#severity').value,
+                    belongTo: getNode('#belongTo').value
+                };
+            }
+
+            function isInvalid () {
+                return [ getNode('#appId'), getNode('#branch'), getNode('#reviewer'), getNode('#coder'), getNode('#comments') ]
+                    .some(function (nodeItem) {
+                        let empty = nodeItem.value === '';
+                        if (empty) {
+                            postVscodeMessage('error', { msg: nodeItem.placeholder || '' });
+                        }
+                        return empty;
+                    });
+            }
+
+            function postVscodeMessage (action, data) {
+                vscode.postMessage({ action, data });
+            }
+
+          </script>
+        </html>
+        `;
+    }
+}
